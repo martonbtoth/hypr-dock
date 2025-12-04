@@ -87,6 +87,28 @@ func SearchDesktopFile(className string) string {
 				return filepath.Join(appDir, fileName)
 			}
 		}
+
+		// Chrome/Chromium webapp: "chrome-messenger.com__-Default" > "Messenger.desktop"
+		if strings.HasPrefix(className, "chrome-") || strings.HasPrefix(className, "chromium-") {
+			// Extract domain from class name (e.g., "chrome-messenger.com__-Default" -> "messenger.com")
+			parts := strings.SplitN(className, "-", 2)
+			if len(parts) == 2 {
+				domain := strings.Split(parts[1], "__")[0] // Remove "__-Default" suffix
+				domain = strings.TrimSuffix(domain, "-")
+				domainParts := strings.Split(domain, ".")
+				if len(domainParts) > 0 {
+					// Try matching by domain name (e.g., "messenger" from "messenger.com")
+					baseName := domainParts[0]
+					for _, file := range files {
+						fileName := file.Name()
+						fileNameLower := strings.ToLower(fileName)
+						if strings.Contains(fileNameLower, strings.ToLower(baseName)) && strings.HasSuffix(fileNameLower, ".desktop") {
+							return filepath.Join(appDir, fileName)
+						}
+					}
+				}
+			}
+		}
 	}
 
 	return ""
