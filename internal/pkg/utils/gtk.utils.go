@@ -10,6 +10,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+const scaleFactor = 2
+
 func CreateImageWidthScale(source string, size int, scaleFactor float64) (*gtk.Image, error) {
 	scaleSize := int(math.Round(float64(size) * math.Max(scaleFactor, 0)))
 
@@ -17,15 +19,17 @@ func CreateImageWidthScale(source string, size int, scaleFactor float64) (*gtk.I
 }
 
 func CreateImage(source string, size int) (*gtk.Image, error) {
+	scaledSize := size * scaleFactor
+
 	// Create image in file
 	if strings.Contains(source, "/") {
-		pixbuf, err := gdk.PixbufNewFromFileAtSize(source, size, size)
+		pixbuf, err := gdk.PixbufNewFromFileAtSize(source, scaledSize, scaledSize)
 		if err != nil {
 			log.Println(err)
 			return CreateImage("image-missing", size)
 		}
 
-		return CreateImageFromPixbuf(pixbuf), nil
+		return createImageFromPixbufWithScale(pixbuf, scaleFactor)
 	}
 
 	// Create image in icon name
@@ -35,13 +39,29 @@ func CreateImage(source string, size int) (*gtk.Image, error) {
 		return CreateImage("image-missing", size)
 	}
 
-	pixbuf, err := iconTheme.LoadIcon(source, size, gtk.ICON_LOOKUP_FORCE_SIZE)
+	pixbuf, err := iconTheme.LoadIcon(source, scaledSize, gtk.ICON_LOOKUP_FORCE_SIZE)
 	if err != nil {
 		log.Println(source, err)
 		return CreateImage("image-missing", size)
 	}
 
-	return CreateImageFromPixbuf(pixbuf), nil
+	return createImageFromPixbufWithScale(pixbuf, scaleFactor)
+}
+
+func createImageFromPixbufWithScale(pixbuf *gdk.Pixbuf, scale int) (*gtk.Image, error) {
+	surface, err := gdk.CairoSurfaceCreateFromPixbuf(pixbuf, scale, nil)
+	if err != nil {
+		log.Println("Error creating surface from pixbuf:", err)
+		return nil, err
+	}
+
+	image, err := gtk.ImageNew()
+	if err != nil {
+		log.Println("Error creating image:", err)
+		return nil, err
+	}
+	image.SetFromSurface(surface)
+	return image, nil
 }
 
 func CreateImageFromPixbuf(pixbuf *gdk.Pixbuf) *gtk.Image {
